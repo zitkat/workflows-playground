@@ -1,0 +1,59 @@
+name: Validate PR Source and Target (Prevent Master Merge)
+
+on:
+  pull_request:
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check PR source branch
+        id: check-source-branch
+        run: |
+          echo "Source branch: $(git branch --show-toplevel)"
+
+      - name: Check PR target branch
+        id: check-target-branch
+        run: |
+          echo "Target branch: $(git branch --show-current)"
+
+      - name: Validate target branch
+        if: ${{ github.event.pull_request.base.ref == 'master' }}
+        id: validate-target-branch
+        run: |
+          if [[ "$(git branch --show-toplevel)" != "develop" ]]; then
+            echo "Pull request must be created from the develop branch when targeting master"
+            exit 1
+          fi
+
+      - name: Set failure message
+        if: steps.validate-target-branch.outcome == 'failure'
+        run: echo "::set-output name=error::Pull request must be created from the develop branch when targeting master"
+
+      - name: Fail workflow
+        if: steps.validate-target-branch.outcome == 'failure'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            if (context.payload.action === 'opened' || context.payload.action === 'reopened') {
+              await github.issues.createComment({
+                issue_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: context.outputs.error
+              })
+            } else {
+              await github.pullRequests.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                event: 'COMMENT',
+                commit_id: context.payload.pull_request.head.sha,
+                body: context.outputs.error
+              })
+            }
