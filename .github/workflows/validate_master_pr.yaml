@@ -14,18 +14,18 @@ jobs:
       - name: Check PR source branch
         id: check-source-branch
         run: |
-          echo "Source branch: $(git branch --show-toplevel)"
+          echo "Source branch: $GITHUB_HEAD_REF"
 
       - name: Check PR target branch
         id: check-target-branch
         run: |
-          echo "Target branch: $(git branch --show-current)"
+          echo "Target branch: $GITHUB_BASE_REF"
 
       - name: Validate target branch
         if: ${{ github.event.pull_request.base.ref == 'master' }}
         id: validate-target-branch
         run: |
-          if [[ "$(git branch --show-toplevel)" != "develop" ]]; then
+          if [[ "$GITHUB_HEAD_REF" != "develop" ]]; then
             echo "Pull request must be created from the develop branch when targeting master"
             exit 1
           fi
